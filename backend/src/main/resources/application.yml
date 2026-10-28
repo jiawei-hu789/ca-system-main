@@ -1,0 +1,29 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+
+spring:
+  application:
+    name: ca-system
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:${CA_DATA_DIR:./data}/ca-system.db
+    hikari:
+      maximum-pool-size: 1
+      connection-init-sql: PRAGMA foreign_keys=ON
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 20MB
+
+ca:
+  storage:
+    root: ${CA_DATA_DIR:./data}
+  storage-key: ${CA_STORAGE_KEY:}
+  keystore-password: ${CA_KEYSTORE_PASSWORD:}
+  admin-username: ${CA_ADMIN_USERNAME:admin}
+  admin-password: ${CA_ADMIN_PASSWORD:}

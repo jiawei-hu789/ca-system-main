@@ -1,0 +1,39 @@
+# Local tools and editors
+.tools/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Dependencies and generated output
+**/node_modules/
+**/dist/
+**/.vite/
+**/coverage/
+**/target/
+*.log
+
+# Local configuration and private keys
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.pk8
+
+# Runtime data, evidence and generated certificates
+**/data/**
+!**/data/.gitkeep
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3

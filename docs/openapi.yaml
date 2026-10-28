@@ -1,0 +1,656 @@
+openapi: 3.0.3
+info:
+  title: CA证书管理系统后端接口
+  version: 1.0.0
+  description: |
+    课程设计演示后端。登录使用Cookie Session，所有POST使用CSRF Cookie与请求头。
+    先调用GET /api/auth/csrf，登录成功后再次获取新令牌。
+    私钥留在用户端；证书吊销状态由本系统数据库查询。
+servers:
+  - url: http://localhost:8080
+    description: 本机后端
+  - url: http://localhost:5173
+    description: Vite开发代理
+security:
+  - sessionCookie: []
+paths:
+  /api/health:
+    get:
+      tags: [健康检查]
+      summary: 检查服务进程
+      security: []
+      responses:
+        '200':
+          description: 服务正常，不表示数据库业务可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/auth/csrf:
+    get:
+      tags: [账号与会话]
+      summary: 获取CSRF令牌与XSRF-TOKEN Cookie
+      security: []
+      responses:
+        '200':
+          description: 保存响应Cookie，POST时携带返回的token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfResponse'
+  /api/auth/register:
+    post:
+      tags: [账号与会话]
+      summary: 注册普通用户
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/auth/login:
+    post:
+      tags: [账号与会话]
+      summary: 登录并获取Session
+      description: 登录成功会清除旧CSRF Cookie，请重新获取令牌。
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/auth/logout:
+    post:
+      tags: [账号与会话]
+      summary: 退出登录
+      security:
+        - csrfCookie: []
+          csrfHeader: []
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/auth/me:
+    get:
+      tags: [账号与会话]
+      summary: 查询当前用户
+      responses:
+        '200':
+          description: 当前账号
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/applications:
+    post:
+      tags: [认证申请]
+      summary: 提交申请、公钥与证明材料
+      security:
+        - sessionCookie: []
+          csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [applicantName, email, publicKeyPem, evidenceFiles]
+              properties:
+                applicantName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                publicKeyPem:
+                  type: string
+                  maxLength: 8192
+                  description: PEM格式SPKI RSA公钥，2048至4096位；不提交私钥。
+                evidenceFiles:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  items:
+                    type: string
+                    format: binary
+                  description: PDF、PNG或JPEG，每份不超过5MB。
+      responses:
+        '200':
+          description: 申请提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/applications/mine:
+    get:
+      tags: [认证申请]
+      summary: 查询本人申请
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: 申请列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/applications/{id}:
+    get:
+      tags: [认证申请]
+      summary: 查看申请详情
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          description: 本人或管理员可查看
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/evidence/{id}/download:
+    get:
+      tags: [认证申请]
+      summary: 下载证明材料
+      parameters:
+        - $ref: '#/components/parameters/EvidenceId'
+      responses:
+        '200':
+          description: 按权限返回附件
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/applications:
+    get:
+      tags: [管理员审核]
+      summary: 查询所有申请
+      description: 仅管理员访问。
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: 申请列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/admin/applications/{id}/review:
+    post:
+      tags: [管理员审核]
+      summary: 审核申请，通过时签发证书
+      security:
+        - sessionCookie: []
+          csrfCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+      responses:
+        '200':
+          description: 审核完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/certificates/mine:
+    get:
+      tags: [证书]
+      summary: 查询本人证书
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: 证书列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/certificates/{serial}:
+    get:
+      tags: [证书]
+      summary: 查询本人或管理员可见的证书
+      parameters:
+        - $ref: '#/components/parameters/Serial'
+      responses:
+        '200':
+          description: 证书详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/certificates/{serial}/download:
+    get:
+      tags: [证书]
+      summary: 下载PEM证书
+      parameters:
+        - $ref: '#/components/parameters/Serial'
+      responses:
+        '200':
+          description: PEM证书文件
+          content:
+            application/x-pem-file:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/ca/certificate:
+    get:
+      tags: [证书]
+      summary: 下载根CA证书
+      responses:
+        '200':
+          description: PEM根证书
+          content:
+            application/x-pem-file:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /api/certificates/{serial}/revocation-requests:
+    post:
+      tags: [证书吊销]
+      summary: 用户申请吊销本人证书
+      security:
+        - sessionCookie: []
+          csrfCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Serial'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: 吊销申请已提交
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevocationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/admin/certificates:
+    get:
+      tags: [证书吊销]
+      summary: 管理员查询证书与吊销申请
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: 证书列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/admin/certificates/{serial}/revoke:
+    post:
+      tags: [证书吊销]
+      summary: 管理员执行吊销
+      security:
+        - sessionCookie: []
+          csrfCookie: []
+          csrfHeader: []
+      parameters:
+        - $ref: '#/components/parameters/Serial'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: 吊销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CertificateResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/certificates/verify:
+    post:
+      tags: [证书]
+      summary: 验证单张X.509证书
+      description: 校验CA签名、有效期、数据库中的证书内容与吊销状态；未知证书不视为有效。
+      security:
+        - sessionCookie: []
+          csrfCookie: []
+          csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [certificate]
+              properties:
+                certificate:
+                  type: string
+                  format: binary
+                  description: 单张PEM或DER证书，不超过64KB
+      responses:
+        '200':
+          description: 验证结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: JSESSIONID }
+    csrfCookie: { type: apiKey, in: cookie, name: XSRF-TOKEN }
+    csrfHeader: { type: apiKey, in: header, name: X-XSRF-TOKEN }
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    EvidenceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Serial:
+      name: serial
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[0-9a-fA-F]{1,40}$' }
+  responses:
+    Success:
+      description: 操作成功
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ResponseBase' }
+    BadRequest:
+      description: 请求参数无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: 未登录或账号密码错误
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: 无权限或CSRF令牌无效
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: 资源不存在或不属于当前用户
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: 重复操作或数据状态冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    TooLarge:
+      description: 上传内容超过大小限制
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unavailable:
+      description: 数据加密密钥或CA密钥库配置不可用
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    ResponseBase:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: { type: string, example: SUCCESS }
+        message: { type: string }
+        data: { nullable: true }
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string, example: BAD_REQUEST }
+        message: { type: string }
+        data: { type: object, nullable: true, example: null }
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_.-]+$'
+        password:
+          type: string
+          format: password
+          minLength: 12
+          description: UTF-8编码不超过72字节
+    Account:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [USER, ADMIN] }
+    Csrf:
+      type: object
+      properties:
+        headerName: { type: string, example: X-XSRF-TOKEN }
+        token: { type: string }
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: UP }
+        service: { type: string, example: ca-system }
+        timestamp: { type: string, format: date-time }
+    Evidence:
+      type: object
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+    Application:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        applicantName: { type: string }
+        email: { type: string }
+        publicKeyPem: { type: string }
+        status: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        createdAt: { type: string, format: date-time }
+        reviewedAt: { type: string, format: date-time, nullable: true }
+        reviewComment: { type: string, nullable: true }
+        evidenceFiles:
+          type: array
+          items: { $ref: '#/components/schemas/Evidence' }
+    ReviewRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        comment: { type: string, maxLength: 1000, description: 驳回时必填 }
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    RevocationRequest:
+      type: object
+      properties:
+        id: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [PENDING, COMPLETED] }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+    Certificate:
+      type: object
+      properties:
+        serial: { type: string }
+        applicationId: { type: string }
+        userId: { type: string }
+        issuedAt: { type: string, format: date-time }
+        notBefore: { type: string, format: date-time }
+        notAfter: { type: string, format: date-time }
+        status: { type: string, enum: [VALID, REVOKED, EXPIRED, NOT_YET_VALID] }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        revocationReason: { type: string, nullable: true }
+        revocationRequests:
+          type: array
+          items: { $ref: '#/components/schemas/RevocationRequest' }
+    Verification:
+      type: object
+      properties:
+        serial: { type: string }
+        signatureValid: { type: boolean }
+        trustedIssuer: { type: boolean }
+        periodValid: { type: boolean }
+        revocationStatus: { type: string, enum: [GOOD, REVOKED, UNKNOWN] }
+        certificateMatchesRecord: { type: boolean }
+        valid: { type: boolean }
+        fingerprintSha256: { type: string }
+    HealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Health' }
+    CsrfResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Csrf' }
+    AccountResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Account' }
+    ApplicationResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Application' }
+    ApplicationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Application' }
+    CertificateResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Certificate' }
+    CertificateListResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Certificate' }
+    RevocationResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/RevocationRequest' }
+    VerificationResponse:
+      allOf:
+        - $ref: '#/components/schemas/ResponseBase'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Verification' }
