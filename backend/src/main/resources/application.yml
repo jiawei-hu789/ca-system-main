@@ -23,7 +23,7 @@ spring:
 ca:
   storage:
     root: ${CA_DATA_DIR:./data}
-  storage-key: ${CA_STORAGE_KEY:}
-  keystore-password: ${CA_KEYSTORE_PASSWORD:}
+  storage-key: ${CA_STORAGE_KEY:vDXWzk+YH/7Pjmo3yeQGOlmSdxfH88VPKnRrGjc0yv0=}
+  keystore-password: ${CA_KEYSTORE_PASSWORD:123456qwerty}
   admin-username: ${CA_ADMIN_USERNAME:admin}
   admin-password: ${CA_ADMIN_PASSWORD:}

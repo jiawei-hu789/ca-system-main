@@ -57,7 +57,6 @@ a:focus-visible, button:focus-visible { outline: 3px solid #ba8232; outline-offs
   color: #fff;
   box-shadow: inset 3px 0 #bdd5b4;
 }
-.sidebar-note { margin-top: auto; padding-top: 65px; color: #b3c7bb; font-size: 11px; line-height: 1.9; }
 .main-shell { flex: 1; min-width: 0; }
 .topbar {
   height: 77px;
@@ -70,8 +69,11 @@ a:focus-visible, button:focus-visible { outline: 3px solid #ba8232; outline-offs
   font-size: 12px;
   color: var(--muted);
 }
-.environment { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
-.environment i { width: 6px; height: 6px; border-radius: 50%; background: #7b8660; }
+.topbar__title { white-space: nowrap; }
+.topbar-user { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.topbar-user__name { color: var(--ink); font-size: 13px; font-weight: 500; word-break: break-all; }
+.topbar-user__logout { color: var(--muted) !important; }
+.topbar-user__logout:hover { color: #a34938 !important; }
 .content { max-width: 1250px; margin: 0 auto; padding: 59px 46px 70px; }
 .eyebrow { margin: 0 0 16px; color: #6c7e70; font-size: 10px; font-weight: 600; letter-spacing: 1.8px; }
 h1 {
@@ -148,6 +150,54 @@ h3 { margin: 24px 0 9px; font-size: 15px; font-weight: 600; }
 .text-link { color: #216454; font-size: 13px; }
 .text-link:hover { text-decoration: underline; }
 
+/* ---------- 登录 / 注册页 ---------- */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  background:
+    radial-gradient(circle at 15% 20%, #e7efe4 0%, transparent 55%),
+    radial-gradient(circle at 85% 80%, #e3ece5 0%, transparent 50%),
+    #f6f6f1;
+}
+.auth-card {
+  width: min(460px, 100%);
+  padding: 38px 40px 32px;
+  background: #fffefa;
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 45px #173c3712;
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+.auth-brand .brand-symbol { border-color: var(--ink); color: var(--ink); }
+.auth-brand h1 { margin: 0; font-size: 17px; letter-spacing: 0; line-height: 1.4; }
+.auth-brand p { margin: 5px 0 0; color: #8a978c; font-size: 8px; letter-spacing: 1.3px; }
+.auth-title { margin: 0 0 10px; font-size: 22px; }
+.auth-lead { margin: 0 0 22px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+.auth-alert { margin-bottom: 18px; }
+.auth-hint { margin: -10px 0 12px; color: var(--muted); font-size: 11px; }
+.auth-submit { width: 100%; margin-top: 6px; }
+.auth-switch { margin: 20px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+/* ---------- 表格 / 面板通用 ---------- */
+.table-wrap { border: 1px solid var(--border); background: #fffefa; padding: 8px 18px 18px; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left;
+  padding: 14px 10px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td { padding: 14px 10px; border-bottom: 1px solid #eef1ea; vertical-align: middle; }
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: #f8faf5; }
+.col-actions { text-align: right; white-space: nowrap; }
+.mono { font-family: Consolas, Monaco, monospace; font-size: 12px; }
+.empty-state { padding: 32px; border: 1px dashed var(--border); color: var(--muted); font-size: 13px; }
+
 @media (max-width: 1100px) {
   .sidebar { width: 216px; padding-inline: 18px; }
   .topbar { padding-inline: 28px; }
@@ -162,8 +212,9 @@ h3 { margin: 24px 0 9px; font-size: 15px; font-weight: 600; }
   .sidebar { width: 100%; padding: 20px; }
   .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 22px; }
   .sidebar nav a { font-size: 12px; padding: 10px; }
-  .sidebar-note { display: none; }
-  .topbar { height: 58px; padding-inline: 20px; }
+  .topbar { height: auto; min-height: 58px; padding: 12px 20px; flex-wrap: wrap; gap: 10px; }
+  .topbar__title { display: none; }
+  .topbar-user { width: 100%; justify-content: space-between; gap: 10px; }
   .content { padding: 31px 20px 45px; }
   .process-grid li { padding: 22px 16px; }
   .connection-panel { padding: 22px 18px; }

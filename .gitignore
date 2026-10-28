@@ -12,6 +12,7 @@ Thumbs.db
 **/.vite/
 **/coverage/
 **/target/
+.npm-cache/
 *.log
 
 # Local configuration and private keys
